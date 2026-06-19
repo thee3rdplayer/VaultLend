@@ -1,26 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/transaction.dart';               // for LoanTransaction
 import '../services/database_service.dart';
+import '../services/data_change_notifier.dart';
 import '../theme.dart';
 
 /// Dashboard overview: outstanding total, collected total, overdue count.
-class SummaryTab extends StatelessWidget {
+/// Listens to DataChangeNotifier to auto‑refresh when data changes elsewhere.
+class SummaryTab extends StatefulWidget {
   const SummaryTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<SummaryTab> createState() => _SummaryTabState();
+}
+
+class _SummaryTabState extends State<SummaryTab> {
+  late Future<List<LoanTransaction>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    context.read<DataChangeNotifier>().addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    context.read<DataChangeNotifier>().removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
     final db = context.read<DatabaseService>();
-    return FutureBuilder(
-      future: db.allTransactions(),
+    _future = db.allTransactions();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Rebuild when DataChangeNotifier fires
+    context.watch<DataChangeNotifier>();
+
+    return FutureBuilder<List<LoanTransaction>>(
+      future: _future,
       builder: (_, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(
             child: CircularProgressIndicator(color: VaultColors.neonPurple),
           );
         }
-        final txs = snapshot.data as List? ?? [];
+        final txs = snapshot.data ?? [];
         final unpaid = txs.where((t) => t.status == 'unpaid').toList();
-        final paid = txs.where((t) => t.status == 'paid').toList();
+        final paid   = txs.where((t) => t.status == 'paid').toList();
 
         final totalUnpaid =
             unpaid.fold<double>(0, (sum, t) => sum + t.totalToPay);
@@ -60,11 +90,12 @@ class _StatCard extends StatelessWidget {
   final Color color;
   final String? extra;
 
-  const _StatCard(
-      {required this.label,
-      required this.value,
-      required this.color,
-      this.extra});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.extra,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +104,7 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: VaultColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),   // no deprecation
       ),
       padding: const EdgeInsets.all(20),
       child: Column(

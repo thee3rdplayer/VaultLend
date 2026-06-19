@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';   // for HapticFeedback
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import '../theme.dart';
 
 /// PIN entry screen.
-/// - If no PIN exists, it lets the user create one (first‑run).
-/// - If a PIN exists, it acts as a login screen.
-/// - After 5 consecutive wrong attempts, a 30‑second lockout is enforced.
-/// - The password field clears automatically on a wrong attempt.
+/// - First run: two fields (PIN + confirm), creates the PIN.
+/// - Subsequent launches: single field, login.
+/// - Haptic feedback on wrong entry.
+/// - 5 wrong attempts → 30‑second lockout.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,16 +19,15 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _pinCtrl = TextEditingController();
-  bool _isFirstRun = false; // true when no PIN has been set yet
-  int _attempts = 0;        // failed attempts counter
-  bool _lockedOut = false;  // true during temporary lockout
+  final _confirmCtrl = TextEditingController();
+  bool _isFirstRun = false;
+  int _attempts = 0;
+  bool _lockedOut = false;
   Timer? _lockoutTimer;
 
   @override
   void initState() {
     super.initState();
-    // Because the widget is only shown after AuthService is initialized,
-    // this value is now always correct.
     final auth = context.read<AuthService>();
     _isFirstRun = auth.needsPinSetup;
   }
@@ -35,43 +35,42 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _pinCtrl.dispose();
+    _confirmCtrl.dispose();
     _lockoutTimer?.cancel();
     super.dispose();
   }
 
-  /// Validate and process the entered PIN.
   Future<void> _submit() async {
     if (_lockedOut) return;
 
     final pin = _pinCtrl.text.trim();
+    final confirm = _confirmCtrl.text.trim();
     if (pin.length < 4) return;
 
     final auth = context.read<AuthService>();
+
     if (_isFirstRun) {
-      // First launch – store the new PIN and auto‑login
+      // First‑run: check confirmation matches
+      if (pin != confirm) {
+        _showError('PINs do not match');
+        return;
+      }
       await auth.setPin(pin);
       await auth.login(pin);
+      // Success – dashboard will appear
     } else {
       final success = await auth.login(pin);
       if (success) {
-        _attempts = 0; // reset on correct PIN
+        _attempts = 0;
       } else {
-        _pinCtrl.clear();  // auto‑clear so user can retype immediately
+        HapticFeedback.heavyImpact();   // vibrate on wrong PIN
+        _pinCtrl.clear();
         _attempts++;
         if (_attempts >= 5) {
           _startLockout();
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                _attempts >= 5
-                    ? 'Too many attempts. Wait 30 seconds.'
-                    : 'Incorrect PIN (${5 - _attempts} tries left)',
-                style: VaultFonts.body(13),
-              ),
-            ),
-          );
+          _showError('Too many attempts. Wait 30 seconds.');
+        } else {
+          _showError('Incorrect PIN (${5 - _attempts} tries left)');
         }
       }
     }
@@ -80,12 +79,17 @@ class _LoginScreenState extends State<LoginScreen> {
   void _startLockout() {
     _lockedOut = true;
     _pinCtrl.clear();
+    _confirmCtrl.clear();
     _lockoutTimer?.cancel();
     _lockoutTimer = Timer(const Duration(seconds: 30), () {
-      if (mounted) {
-        setState(() => _lockedOut = false);
-      }
+      if (mounted) setState(() => _lockedOut = false);
     });
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message, style: VaultFonts.body(13))),
+    );
   }
 
   @override
@@ -101,7 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
               Text('VAULT-LEND',
                   style: VaultFonts.exo(28, weight: FontWeight.w700)),
               const SizedBox(height: 24),
-              // Different prompt for first‑run vs login
               Text(
                 _isFirstRun
                     ? 'Welcome!\nCreate a secure PIN to protect your data.'
@@ -118,16 +121,40 @@ class _LoginScreenState extends State<LoginScreen> {
                 textAlign: TextAlign.center,
                 style: VaultFonts.raj(24, color: VaultColors.neonPurple),
                 enabled: !_lockedOut,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   counterText: '',
-                  enabledBorder: UnderlineInputBorder(
+                  hintText: _isFirstRun ? 'Choose PIN' : null,
+                  enabledBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: Color(0x55C44DFF)),
                   ),
-                  focusedBorder: UnderlineInputBorder(
+                  focusedBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: VaultColors.neonPurple),
                   ),
                 ),
               ),
+              // Confirm field only on first run
+              if (_isFirstRun) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _confirmCtrl,
+                  obscureText: true,
+                  maxLength: 4,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: VaultFonts.raj(24, color: VaultColors.neonPurple),
+                  enabled: !_lockedOut,
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    hintText: 'Confirm PIN',
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Color(0x55C44DFF)),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: VaultColors.neonPurple),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _lockedOut ? null : _submit,

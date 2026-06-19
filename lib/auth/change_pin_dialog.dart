@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import '../theme.dart';
 
 /// Dialog that lets the user change their app PIN.
-/// Requires current PIN verification.
+/// Requires current PIN verification and confirmation of new PIN.
 class ChangePinDialog extends StatefulWidget {
   const ChangePinDialog({super.key});
 
@@ -15,22 +16,42 @@ class ChangePinDialog extends StatefulWidget {
 class _ChangePinDialogState extends State<ChangePinDialog> {
   final _oldCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
 
   Future<void> _change() async {
-    final auth = context.read<AuthService>();
     final oldPin = _oldCtrl.text.trim();
     final newPin = _newCtrl.text.trim();
+    final confirm = _confirmCtrl.text.trim();
+    final auth = context.read<AuthService>();
+
+    if (oldPin.isEmpty || newPin.isEmpty || confirm.isEmpty) {
+      _showMsg('All fields are required');
+      return;
+    }
     if (newPin.length < 4) {
       _showMsg('New PIN must be at least 4 digits');
       return;
     }
+    if (newPin != confirm) {
+      _showMsg('New PINs do not match');
+      return;
+    }
     final ok = await auth.verifyPin(oldPin);
     if (!ok) {
+      HapticFeedback.heavyImpact();
       _showMsg('Old PIN is incorrect');
       return;
     }
     await auth.setPin(newPin);
     if (mounted) Navigator.of(context).pop(true);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PIN updated successfully',
+              style: VaultFonts.body(13)),
+        ),
+      );
+    }
   }
 
   void _showMsg(String text) {
@@ -49,29 +70,41 @@ class _ChangePinDialogState extends State<ChangePinDialog> {
       ),
       title: Text('CHANGE PIN',
           style: VaultFonts.exo(16, weight: FontWeight.w700)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _oldCtrl,
-            obscureText: true,
-            maxLength: 4,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-                labelText: 'Old PIN', counterText: ''),
-            style: VaultFonts.raj(16),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _newCtrl,
-            obscureText: true,
-            maxLength: 4,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-                labelText: 'New PIN', counterText: ''),
-            style: VaultFonts.raj(16),
-          ),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _oldCtrl,
+              obscureText: true,
+              maxLength: 4,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  labelText: 'Old PIN', counterText: ''),
+              style: VaultFonts.raj(16),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _newCtrl,
+              obscureText: true,
+              maxLength: 4,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  labelText: 'New PIN', counterText: ''),
+              style: VaultFonts.raj(16),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirmCtrl,
+              obscureText: true,
+              maxLength: 4,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  labelText: 'Confirm New PIN', counterText: ''),
+              style: VaultFonts.raj(16),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(

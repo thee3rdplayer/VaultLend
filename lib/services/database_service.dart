@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../models/transaction.dart';
+import '../models/transaction.dart';   // ← THIS MUST BE PRESENT
 
 /// All CRUD operations on the local SQLite database.
 class DatabaseService {
@@ -74,7 +74,7 @@ class DatabaseService {
         where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Bulk import – checks for duplicates based on unique identifier fields.
+  /// Bulk import – skips duplicates by checking key identifying fields.
   Future<void> importTransactions(List<LoanTransaction> txs,
       {bool clearFirst = false}) async {
     final db = await database;
@@ -82,6 +82,7 @@ class DatabaseService {
 
     final batch = db.batch();
     for (final tx in txs) {
+      // Check for an existing identical transaction
       final exists = await db.query(
         'transactions',
         where: 'borrowerName = ? AND phone = ? AND loanDate = ? AND '

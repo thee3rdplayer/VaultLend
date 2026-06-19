@@ -29,7 +29,23 @@ class UploadTab extends StatelessWidget {
             onTap: () async {
               final txs = await db.allTransactions();
               final file = await exportService.exportToCsv(txs);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Export ready – choose where to save it',
+                        style: VaultFonts.body(13)),
+                  ),
+                );
+              }
               await exportService.shareFile(file);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('CSV exported successfully',
+                        style: VaultFonts.body(13)),
+                  ),
+                );
+              }
             },
           ),
           const SizedBox(height: 12),
@@ -53,19 +69,18 @@ class UploadTab extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Imported ${imported.length} transactions',
+                          'Imported ${imported.length} transactions (duplicates skipped)',
                           style: VaultFonts.body(13),
                         ),
                       ),
                     );
-                    // Refresh all tabs
                     context.read<DataChangeNotifier>().notifyDataChanged();
                   }
                 } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('No valid data found',
+                        content: Text('No valid data found in the file',
                             style: VaultFonts.body(13)),
                       ),
                     );
@@ -80,18 +95,21 @@ class UploadTab extends StatelessWidget {
   }
 }
 
+/// Reusable tile widget for the Upload tab.
 class _Tile extends StatelessWidget {
   final IconData icon;
-  final String label, desc;
+  final String label;
+  final String desc;
   final Color color;
   final VoidCallback? onTap;
 
-  const _Tile(
-      {required this.icon,
-      required this.label,
-      required this.desc,
-      required this.color,
-      this.onTap});
+  const _Tile({
+    required this.icon,
+    required this.label,
+    required this.desc,
+    required this.color,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
