@@ -19,11 +19,11 @@ jobs:
           flutter pub get
           flutter build ios --debug --simulator
 
-      # 2. Install tools (VNC server, virtual display, ngrok)
+      # 2. Install tools (VNC server, virtual display, websockify, bore)
       - name: Install tools
         run: |
-          brew install tigervnc ngrok
-          # Start virtual display (headless runner needs this to show the simulator UI)
+          brew install tigervnc bore-cli   # bore is a free HTTP/WS tunnel, no credit card needed
+          pip3 install websockify
           nohup Xvfb :99 -screen 0 1280x1024x24 &
           sleep 2
 
@@ -32,7 +32,7 @@ jobs:
         run: |
           export DISPLAY=:99
 
-          # Find a usable iPhone simulator (any model)
+          # Find a usable iPhone simulator
           SIMULATOR_LINE=$(xcrun simctl list devices available \
             | grep -E "iPhone [0-9]+" \
             | head -1)
@@ -41,17 +41,14 @@ jobs:
             exit 1
           fi
 
-          # Extract UUID and device name
           UDID=$(echo "$SIMULATOR_LINE" \
             | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
           DEVICE_NAME=$(echo "$SIMULATOR_LINE" | sed 's/ (.*//')
           echo "Using $DEVICE_NAME ($UDID)"
 
-          # Boot
           xcrun simctl boot "$UDID" || true
           sleep 15
 
-          # Install app
           APP_PATH="build/ios/Debug-iphonesimulator/Runner.app"
           if [ ! -d "$APP_PATH" ]; then
             echo "App not found at $APP_PATH"
@@ -59,14 +56,12 @@ jobs:
           fi
           xcrun simctl install "$UDID" "$APP_PATH"
 
-          # Read bundle identifier from Info.plist
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist")
           if [ -z "$BUNDLE_ID" ]; then
             BUNDLE_ID="com.example.vaultlend"
           fi
           echo "Bundle ID: $BUNDLE_ID"
 
-          # Launch the app
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
 
       # 4. Start VNC server
@@ -76,17 +71,32 @@ jobs:
           vncserver :99 -localhost no -SecurityTypes None -geometry 1280x1024 -depth 24 &
           sleep 5
 
-      # 5. Expose VNC via ngrok
-      - name: Expose VNC via ngrok
-        env:
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+      # 5. Bridge VNC to WebSocket + expose via bore
+      - name: Expose VNC via bore (WebSocket)
         run: |
-          ngrok config add-authtoken $NGROK_AUTH_TOKEN
-          ngrok tcp 5900 --log=stdout > /dev/null &
-          sleep 3
-          VNC_URL=$(curl -s localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          # Convert VNC (TCP 5900) to WebSocket on port 6080
+          websockify 6080 localhost:5900 &
+          sleep 2
+
+          # Start bore tunnel for port 6080
+          bore local 6080 --to bore.pub > bore.log 2>&1 &
+          sleep 4
+
+          # Extract the public hostname assigned by bore
+          BORE_URL=$(grep -oE 'bore\.pub:[0-9]+' bore.log | head -1)
+          if [ -z "$BORE_URL" ]; then
+            echo "Could not retrieve bore URL"
+            cat bore.log
+            exit 1
+          fi
+
+          HOST=$(echo "$BORE_URL" | cut -d: -f1)
+          PORT=$(echo "$BORE_URL" | cut -d: -f2)
+
           echo "────────────────────────────────────────────────────"
-          echo "🔗 VNC address: $VNC_URL"
+          echo "🔗 Open this link in your browser to test the app:"
+          echo "https://novnc.com/noVNC/vnc.html?host=$HOST&port=$PORT&path=/websockify"
           echo "────────────────────────────────────────────────────"
-          # Keep alive for 1 hour (max GitHub Actions runtime)
+
+          # Keep alive for up to 1 hour
           sleep 3600
