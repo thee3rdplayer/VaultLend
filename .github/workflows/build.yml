@@ -1,51 +1,77 @@
 # ─── Workflow name ─────────────────────────────────────────────
-name: iOS Simulator Build + Appetize   # displayed in the Actions tab
+name: iOS Simulator Live VNC
 
-# ─── Trigger: when this workflow runs ─────────────────────────
-on: push   # every push to any branch triggers the build
+# ─── Trigger ──────────────────────────────────────────────────
+on: push
 
-# ─── Jobs ─────────────────────────────────────────────────────
 jobs:
   build:
-    runs-on: macos-latest   # macOS runner required for iOS compilation
+    runs-on: macos-latest
 
     steps:
-      # 1. Checkout the repository code
       - uses: actions/checkout@v4
 
-      # 2. Install Flutter (specify the exact version used locally)
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.2'
 
-      # 3. Build the iOS simulator binary (debug mode, no signing needed)
+      # 1. Build the iOS Simulator app (unsigned, no signing needed)
       - name: Build simulator .app
         run: |
-          flutter pub get                        # fetch all Dart dependencies
-          flutter build ios --debug --simulator  # creates a .app for iOS Simulator
+          flutter pub get
+          flutter build ios --debug --simulator
 
-      # 4. Compress the .app into a zip file (Appetize accepts a zip)
-      - name: Package .app
+      # 2. Install needed tools (ngrok, virtual display, VNC server)
+      - name: Install tools
         run: |
-          cd build/ios/Debug-iphonesimulator   # navigate to the build output
-          zip -r VaultLend.app.zip Runner.app  # create the zip archive
+          brew install --cask ngrok
+          brew install tigervnc
+          # Start a virtual display (required for Simulator on headless runner)
+          nohup Xvfb :99 -screen 0 1280x1024x24 &
 
-      # 5. Upload the zip to Appetize.io for browser-based testing
-      - name: Upload to Appetize
+      # 3. Start iOS Simulator in background
+      - name: Boot Simulator
+        run: |
+          export DISPLAY=:99
+          # List available simulators
+          xcrun simctl list devices
+          # Boot the first available iPhone simulator (e.g., iPhone 15)
+          UDID=$(xcrun simctl list devices | grep "iPhone 15" | head -1 | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
+          if [ -z "$UDID" ]; then
+            # fallback: just use a known device type
+            UDID=$(xcrun simctl create "VaultLendTest" "iPhone 15" "com.apple.CoreSimulator.SimRuntime.iOS-17-5")
+          fi
+          xcrun simctl boot "$UDID"
+          # Wait for simulator to boot
+          sleep 15
+          # Install the app
+          xcrun simctl install "$UDID" build/ios/Debug-iphonesimulator/Runner.app
+          # Launch the app
+          xcrun simctl launch "$UDID" com.example.vaultlend
+
+      # 4. Start VNC server sharing the virtual display
+      - name: Start VNC server
+        run: |
+          export DISPLAY=:99
+          vncserver :99 -localhost no -SecurityTypes None -geometry 1280x1024 -depth 24 &
+          sleep 5
+
+      # 5. Create ngrok tunnel to expose VNC port (5900)
+      - name: Expose VNC via ngrok
         env:
-          # The API token stored as a GitHub secret (never hardcoded)
-          APPETIZE_API_TOKEN: ${{ secrets.APPETIZE_API_TOKEN }}
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
         run: |
-          # Send the zip to Appetize's API
-          RESPONSE=$(curl -s -X POST https://api.appetize.io/v1/apps \
-            -H "X-API-KEY: $APPETIZE_API_TOKEN" \
-            -F "file=@build/ios/Debug-iphonesimulator/VaultLend.app.zip" \
-            -F "platform=ios") 
-          
-          # Show the full response for debugging
-          echo "Appetize response: $RESPONSE"
-          
-          # Safely extract the public key using jq
-          PUBLIC_KEY=$(echo "$RESPONSE" | jq -r '.publicKey')
-          echo "Public key: $PUBLIC_KEY"
-          echo "App Preview Link: https://appetize.io"
+          ngrok config add-authtoken $NGROK_AUTH_TOKEN
+          ngrok tcp 5900 --log=stdout > /dev/null &
+          sleep 3
+          # Get the public URL
+          VNC_URL=$(curl -s localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "────────────────────────────────────────────────────"
+          echo "🔗 Use this VNC address with a VNC viewer:"
+          echo "$VNC_URL"
+          echo "────────────────────────────────────────────────────"
+          # Also output a web-based VNC link using noVNC (optional)
+          echo "Or open this link in your browser:"
+          echo "https://novnc.com/noVNC/vnc.html?host=$(echo $VNC_URL | sed 's/tcp:\/\///')"
+          # Keep the tunnel alive while you interact
+          sleep 3600   # 1 hour max (free GitHub runner limit)
