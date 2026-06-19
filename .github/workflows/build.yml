@@ -1,42 +1,92 @@
-      # 3. Boot the first available iPhone simulator, install & launch VaultLend
+name: iOS Simulator Live VNC
+
+on: push
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+
+      # 1. Build the iOS Simulator app
+      - name: Build simulator .app
+        run: |
+          flutter pub get
+          flutter build ios --debug --simulator
+
+      # 2. Install tools
+      - name: Install tools
+        run: |
+          brew install tigervnc
+          # Start virtual display (headless runner needs this)
+          nohup Xvfb :99 -screen 0 1280x1024x24 &
+          sleep 2
+
+      # 3. Boot Simulator & launch app
       - name: Boot Simulator & Launch App
         run: |
           export DISPLAY=:99
 
-          # --- Find a usable iPhone device (avoid watches, TVs, iPads) ---
+          # Find a usable iPhone simulator
           SIMULATOR_LINE=$(xcrun simctl list devices available \
             | grep -E "iPhone [0-9]+" \
             | head -1)
           if [ -z "$SIMULATOR_LINE" ]; then
-            echo " No iPhone simulator found"
+            echo "No iPhone simulator found"
             exit 1
           fi
 
-          # Extract the UUID (the string inside parentheses)
+          # Extract UUID and device name
           UDID=$(echo "$SIMULATOR_LINE" \
             | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}')
           DEVICE_NAME=$(echo "$SIMULATOR_LINE" | sed 's/ (.*//')
+          echo "Using $DEVICE_NAME ($UDID)"
 
-          echo " Using device: $DEVICE_NAME ($UDID)"
+          # Boot
+          xcrun simctl boot "$UDID" || true
+          sleep 15
 
-          # --- Boot the simulator ---
-          xcrun simctl boot "$UDID" || true   # don't fail if already booted
-          sleep 15   # give it time to finish booting
-
-          # --- Install the Flutter app ---
+          # Install app
           APP_PATH="build/ios/Debug-iphonesimulator/Runner.app"
           if [ ! -d "$APP_PATH" ]; then
-            echo " App not found at $APP_PATH"
+            echo "App not found at $APP_PATH"
             exit 1
           fi
           xcrun simctl install "$UDID" "$APP_PATH"
 
-          # --- Read the app bundle identifier from its Info.plist ---
+          # Read bundle identifier
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist")
           if [ -z "$BUNDLE_ID" ]; then
-            BUNDLE_ID="com.example.vaultlend"   # fallback
+            BUNDLE_ID="com.example.vaultlend"
           fi
-          echo " Bundle ID: $BUNDLE_ID"
+          echo "Bundle ID: $BUNDLE_ID"
 
-          # --- Launch the app ---
+          # Launch
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
+
+      # 4. Start VNC server
+      - name: Start VNC server
+        run: |
+          export DISPLAY=:99
+          vncserver :99 -localhost no -SecurityTypes None -geometry 1280x1024 -depth 24 &
+          sleep 5
+
+      # 5. Expose via ngrok
+      - name: Expose VNC via ngrok
+        env:
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: |
+          ngrok config add-authtoken $NGROK_AUTH_TOKEN
+          ngrok tcp 5900 --log=stdout > /dev/null &
+          sleep 3
+          VNC_URL=$(curl -s localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "────────────────────────────────────────────────────"
+          echo "🔗 VNC address: $VNC_URL"
+          echo "────────────────────────────────────────────────────"
+          # Keep alive (1 hour max)
+          sleep 3600
