@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth/auth_service.dart';
 import '../auth/change_pin_dialog.dart';
+import '../services/database_service.dart'; 
+import '../services/notification_service.dart';
 import '../theme.dart';
 import 'summary_tab.dart';
 import 'pending_tab.dart';
@@ -24,10 +26,30 @@ class _DashboardState extends State<Dashboard> {
   final _tabs = const [
     SummaryTab(),
     PendingTab(),
-    CompletedTab(),  // paid loans
+    CompletedTab(),
     AuditTab(),
     UploadTab(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Reschedule all due notifications when the dashboard first appears
+    _rescheduleAllDueReminders();
+  }
+
+  /// Loop through every unpaid loan and schedule a notification.
+  void _rescheduleAllDueReminders() {
+    final db = context.read<DatabaseService>();
+    final notif = context.read<NotificationService>();
+    db.allTransactions().then((txs) {
+      for (final tx in txs) {
+        if (!tx.isPaid) {
+          notif.scheduleDueReminder(tx);
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -4,16 +4,24 @@ import 'auth/auth_service.dart';
 import 'auth/login_screen.dart';
 import 'services/database_service.dart';
 import 'services/data_change_notifier.dart';
+import 'services/notification_service.dart';
 import 'screens/dashboard.dart';
 import 'theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialise the notification service before running the app
+  final notificationService = NotificationService();
+  await notificationService.init();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         Provider(create: (_) => DatabaseService()),
         ChangeNotifierProvider(create: (_) => DataChangeNotifier()),
+        Provider(create: (_) => notificationService),   // ← added
       ],
       child: const VaultLendApp(),
     ),

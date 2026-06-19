@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/transaction.dart';          // ← THIS WAS MISSING
+import '../models/transaction.dart';
 import '../services/database_service.dart';
+import '../services/notification_service.dart';
 import '../theme.dart';
 
 /// Full‑screen form to add a new loan.
-/// Interest is a flat amount; total = base + interest.
+/// Includes name, phone, address, amounts, and dates.
 class AddTransactionDialog extends StatefulWidget {
   const AddTransactionDialog({super.key});
 
@@ -17,6 +18,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
   final _baseAmountCtrl = TextEditingController();
   final _interestAmountCtrl = TextEditingController();
 
@@ -36,6 +38,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
     final tx = LoanTransaction(
       borrowerName: _nameCtrl.text.trim(),
       phone: _phoneCtrl.text.trim(),
+      address: _addressCtrl.text.trim(),
       loanDate: _loanDate,
       baseAmount: double.parse(_baseAmountCtrl.text),
       interestAmount: double.parse(_interestAmountCtrl.text),
@@ -44,7 +47,12 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
     );
 
     await context.read<DatabaseService>().insert(tx);
-    if (mounted) Navigator.pop(context, true);
+
+    // Schedule a due notification for the new loan
+    if (mounted) {
+      context.read<NotificationService>().scheduleDueReminder(tx);
+      Navigator.pop(context, true);
+    }
   }
 
   Future<void> _pickDate(bool isLoanDate) async {
@@ -107,6 +115,12 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                 controller: _phoneCtrl,
                 decoration: const InputDecoration(labelText: 'Phone Number'),
                 keyboardType: TextInputType.phone,
+                style: VaultFonts.raj(16),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _addressCtrl,
+                decoration: const InputDecoration(labelText: 'Address'),
                 style: VaultFonts.raj(16),
               ),
               const SizedBox(height: 16),

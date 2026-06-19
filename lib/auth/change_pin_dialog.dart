@@ -5,7 +5,8 @@ import 'auth_service.dart';
 import '../theme.dart';
 
 /// Dialog that lets the user change their app PIN.
-/// Requires current PIN verification and confirmation of new PIN.
+/// Fields are cleared on incorrect old PIN or mismatch.
+/// Keyboard opens automatically.
 class ChangePinDialog extends StatefulWidget {
   const ChangePinDialog({super.key});
 
@@ -33,12 +34,18 @@ class _ChangePinDialogState extends State<ChangePinDialog> {
       return;
     }
     if (newPin != confirm) {
+      HapticFeedback.heavyImpact();
+      _newCtrl.clear();
+      _confirmCtrl.clear();
       _showMsg('New PINs do not match');
       return;
     }
     final ok = await auth.verifyPin(oldPin);
     if (!ok) {
       HapticFeedback.heavyImpact();
+      _oldCtrl.clear();
+      _newCtrl.clear();
+      _confirmCtrl.clear();
       _showMsg('Old PIN is incorrect');
       return;
     }
@@ -79,6 +86,7 @@ class _ChangePinDialogState extends State<ChangePinDialog> {
               obscureText: true,
               maxLength: 4,
               keyboardType: TextInputType.number,
+              autofocus: true,   // open keyboard automatically
               decoration: const InputDecoration(
                   labelText: 'Old PIN', counterText: ''),
               style: VaultFonts.raj(16),

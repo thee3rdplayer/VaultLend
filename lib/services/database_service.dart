@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../models/transaction.dart';   // ← THIS MUST BE PRESENT
+import '../models/transaction.dart';
 
 /// All CRUD operations on the local SQLite database.
 class DatabaseService {
@@ -21,6 +21,7 @@ class DatabaseService {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           borrowerName TEXT NOT NULL,
           phone TEXT NOT NULL,
+          address TEXT NOT NULL DEFAULT '',
           loanDate TEXT NOT NULL,
           baseAmount REAL NOT NULL,
           interestAmount REAL NOT NULL,
@@ -31,7 +32,13 @@ class DatabaseService {
           createdAt TEXT NOT NULL
         )
       '''),
-      version: 2,
+      version: 3, // bumped because we added address column
+      onUpgrade: (db, oldVersion, newVersion) {
+        if (oldVersion < 3) {
+          db.execute(
+              "ALTER TABLE transactions ADD COLUMN address TEXT NOT NULL DEFAULT ''");
+        }
+      },
     );
   }
 
@@ -64,17 +71,28 @@ class DatabaseService {
         where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Add a note and optionally change status (paid toggle).
+  /// Add a note, optionally change status, and now also update phone & address.
   Future<int> addAudit(int id,
-      {required String note, String? newStatus}) async {
+      {required String note,
+      String? newStatus,
+      String? phone,
+      String? address}) async {
     final db = await database;
     final values = <String, dynamic>{'note': note};
     if (newStatus != null) values['status'] = newStatus;
+    if (phone != null) values['phone'] = phone;
+    if (address != null) values['address'] = address;
     return db.update('transactions', values,
         where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Bulk import – skips duplicates by checking key identifying fields.
+  /// Delete a transaction by id.
+  Future<int> delete(int id) async {
+    final db = await database;
+    return db.delete('transactions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Bulk import – skips duplicates by checking all key fields including address.
   Future<void> importTransactions(List<LoanTransaction> txs,
       {bool clearFirst = false}) async {
     final db = await database;
@@ -82,14 +100,14 @@ class DatabaseService {
 
     final batch = db.batch();
     for (final tx in txs) {
-      // Check for an existing identical transaction
       final exists = await db.query(
         'transactions',
-        where: 'borrowerName = ? AND phone = ? AND loanDate = ? AND '
+        where: 'borrowerName = ? AND phone = ? AND address = ? AND loanDate = ? AND '
             'baseAmount = ? AND interestAmount = ? AND dueDate = ?',
         whereArgs: [
           tx.borrowerName,
           tx.phone,
+          tx.address,
           tx.loanDate.toIso8601String(),
           tx.baseAmount,
           tx.interestAmount,

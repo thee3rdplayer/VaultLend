@@ -3,13 +3,17 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/transaction.dart';
 
-/// CSV export/import without referral fields.
+/// CSV export/import with address column.
 class ExportService {
+  // The CSV header is a compile‑time constant
+  static const _header =
+      'Name,Phone,Address,LoanDate,BaseAmount,InterestAmount,DueDate,Status,Note,CreatedAt';
+
   String _toCsv(List<LoanTransaction> txs) {
-    const header = 'Name,Phone,LoanDate,BaseAmount,InterestAmount,DueDate,Status,Note,CreatedAt';
     final rows = txs.map((t) => [
           _escapeCsv(t.borrowerName),
           _escapeCsv(t.phone),
+          _escapeCsv(t.address),
           t.loanDate.toIso8601String(),
           t.baseAmount,
           t.interestAmount,
@@ -18,7 +22,7 @@ class ExportService {
           _escapeCsv(t.note ?? ''),
           t.createdAt.toIso8601String(),
         ].join(','));
-    return '$header\n${rows.join('\n')}';
+    return '$_header\n${rows.join('\n')}';
   }
 
   String _escapeCsv(String value) {
@@ -51,18 +55,19 @@ class ExportService {
     for (final line in dataLines) {
       if (line.trim().isEmpty) continue;
       final values = _splitCsvLine(line);
-      if (values.length < 9) continue;
+      if (values.length < 10) continue; // need at least 10 columns
       try {
         txs.add(LoanTransaction(
           borrowerName: values[0],
           phone: values[1],
-          loanDate: DateTime.parse(values[2]),
-          baseAmount: double.parse(values[3]),
-          interestAmount: double.parse(values[4]),
-          dueDate: DateTime.parse(values[5]),
-          status: values[6],
-          note: values[7].isEmpty ? null : values[7],
-          createdAt: DateTime.parse(values[8]),
+          address: values[2],
+          loanDate: DateTime.parse(values[3]),
+          baseAmount: double.parse(values[4]),
+          interestAmount: double.parse(values[5]),
+          dueDate: DateTime.parse(values[6]),
+          status: values[7],
+          note: values[8].isEmpty ? null : values[8],
+          createdAt: DateTime.parse(values[9]),
         ));
       } catch (_) {}
     }

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';   // for HapticFeedback
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import '../theme.dart';
@@ -10,6 +10,8 @@ import '../theme.dart';
 /// - Subsequent launches: single field, login.
 /// - Haptic feedback on wrong entry.
 /// - 5 wrong attempts → 30‑second lockout.
+/// - Fields clear automatically on mismatch or incorrect entry.
+/// - Autofocus to bring up keyboard immediately.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -50,20 +52,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthService>();
 
     if (_isFirstRun) {
-      // First‑run: check confirmation matches
       if (pin != confirm) {
-        _showError('PINs do not match');
+        HapticFeedback.heavyImpact();
+        _pinCtrl.clear();
+        _confirmCtrl.clear();
+        _showError('PINs do not match – please try again');
         return;
       }
       await auth.setPin(pin);
       await auth.login(pin);
-      // Success – dashboard will appear
     } else {
       final success = await auth.login(pin);
       if (success) {
         _attempts = 0;
       } else {
-        HapticFeedback.heavyImpact();   // vibrate on wrong PIN
+        HapticFeedback.heavyImpact();
         _pinCtrl.clear();
         _attempts++;
         if (_attempts >= 5) {
@@ -121,6 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 textAlign: TextAlign.center,
                 style: VaultFonts.raj(24, color: VaultColors.neonPurple),
                 enabled: !_lockedOut,
+                autofocus: true,   // opens keyboard immediately
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: _isFirstRun ? 'Choose PIN' : null,

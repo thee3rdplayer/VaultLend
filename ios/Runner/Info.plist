@@ -27,6 +27,10 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>   <!-- optional, for background rescheduling -->
+	</array>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>

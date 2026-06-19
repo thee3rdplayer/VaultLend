@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../services/database_service.dart';
 import '../services/data_change_notifier.dart';
+import '../services/notification_service.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -95,11 +96,12 @@ class _PendingTabState extends State<PendingTab> {
                 );
               },
               onDismissed: (_) async {
-                // Capture notifier before async to avoid context‑gap warning
                 final notifier = context.read<DataChangeNotifier>();
+                final notif = context.read<NotificationService>();
                 await context
                     .read<DatabaseService>()
                     .updateStatus(tx.id!, 'paid');
+                await notif.cancelReminder(tx.id!);   // ← cancel notification
                 notifier.notifyDataChanged();
               },
               child: TransactionTile(
