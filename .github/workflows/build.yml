@@ -19,11 +19,14 @@ jobs:
           flutter pub get
           flutter build ios --debug --simulator
 
-      # 2. Install tools (VNC server, virtual display, websockify, bore)
+      # 2. Install tools (VNC server, virtual display, bore, websockify via venv)
       - name: Install tools
         run: |
-          brew install tigervnc bore-cli   # bore is a free HTTP/WS tunnel, no credit card needed
-          pip3 install websockify
+          brew install tigervnc bore-cli
+          # Create a Python virtual environment so pip is allowed
+          python3 -m venv ~/venv
+          source ~/venv/bin/activate
+          pip install websockify
           nohup Xvfb :99 -screen 0 1280x1024x24 &
           sleep 2
 
@@ -32,7 +35,7 @@ jobs:
         run: |
           export DISPLAY=:99
 
-          # Find a usable iPhone simulator
+          # Find a usable iPhone simulator (any model)
           SIMULATOR_LINE=$(xcrun simctl list devices available \
             | grep -E "iPhone [0-9]+" \
             | head -1)
@@ -74,6 +77,9 @@ jobs:
       # 5. Bridge VNC to WebSocket + expose via bore
       - name: Expose VNC via bore (WebSocket)
         run: |
+          # Activate venv to access websockify
+          source ~/venv/bin/activate
+
           # Convert VNC (TCP 5900) to WebSocket on port 6080
           websockify 6080 localhost:5900 &
           sleep 2
