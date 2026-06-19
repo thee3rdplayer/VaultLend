@@ -1,0 +1,64 @@
+name: vaultlend
+description: A lightweight loan ledger app.
+
+# Dart SDK version range (minimum 3.12.0, up to but not including 4.0.0)
+# Matches the bundled Dart version in Flutter 3.44.2
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Filesystem path manipulation (used by sqflite and for CSV export paths)
+  path: ^1.8.3
+
+  # Retro purple typography: Exo 2 & Rajdhani
+  google_fonts: ^6.1.0
+
+  # Local SQLite database for storing all loan records
+  sqflite: ^2.3.0
+
+  # Resolve temporary/system paths for CSV export
+  path_provider: ^2.1.0
+
+  # Encrypted key‑chain storage for the PIN hash
+  flutter_secure_storage: ^9.0.0
+
+  # SHA‑256 hashing for the PIN
+  crypto: ^3.0.3
+
+  # Native share sheet → iCloud Drive (Save to Files)
+  share_plus: ^7.2.0
+
+  # Pick CSV files during import
+  file_picker: ^6.1.1
+
+  # Date formatting utilities
+  intl: ^0.18.1
+
+  # State management & dependency injection
+  provider: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Recommended lint rules for clean Dart code
+  flutter_lints: ^3.0.1
+
+  # Tool for automatically generating app icons for iOS/Android
+  flutter_launcher_icons: ^0.13.1
+
+# --------------------------------------------------
+# Flutter configuration (bundled assets, fonts, etc.)
+# --------------------------------------------------
+flutter:
+
+  # Enables the Material Icons font
+  uses-material-design: true
+
+  # Assets bundled with the app
+  assets:
+    # App icon source image (must be a PNG for iOS generation)
+    - assets/vaultlend.png  

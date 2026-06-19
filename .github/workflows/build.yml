@@ -1,0 +1,51 @@
+# ─── Workflow name ─────────────────────────────────────────────
+name: iOS Simulator Build + Appetize   # displayed in the Actions tab
+
+# ─── Trigger: when this workflow runs ─────────────────────────
+on: push   # every push to any branch triggers the build
+
+# ─── Jobs ─────────────────────────────────────────────────────
+jobs:
+  build:
+    runs-on: macos-latest   # macOS runner required for iOS compilation
+
+    steps:
+      # 1. Checkout the repository code
+      - uses: actions/checkout@v4
+
+      # 2. Install Flutter (specify the exact version used locally)
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+
+      # 3. Build the iOS simulator binary (debug mode, no signing needed)
+      - name: Build simulator .app
+        run: |
+          flutter pub get                        # fetch all Dart dependencies
+          flutter build ios --debug --simulator  # creates a .app for iOS Simulator
+
+      # 4. Compress the .app into a zip file (Appetize accepts a zip)
+      - name: Package .app
+        run: |
+          cd build/ios/Debug-iphonesimulator   # navigate to the build output
+          zip -r VaultLend.app.zip Runner.app  # create the zip archive
+
+      # 5. Upload the zip to Appetize.io for browser-based testing
+      - name: Upload to Appetize
+        env:
+          # The API token stored as a GitHub secret (never hardcoded)
+          APPETIZE_API_TOKEN: ${{ secrets.APPETIZE_API_TOKEN }}
+        run: |
+          # Send the zip to Appetize's API
+          RESPONSE=$(curl -s -X POST https://api.appetize.io/v1/apps \
+            -H "X-API-KEY: $APPETIZE_API_TOKEN" \
+            -F "file=@build/ios/Debug-iphonesimulator/VaultLend.app.zip" \
+            -F "platform=ios") 
+          
+          # Show the full response for debugging
+          echo "Appetize response: $RESPONSE"
+          
+          # Safely extract the public key using jq
+          PUBLIC_KEY=$(echo "$RESPONSE" | jq -r '.publicKey')
+          echo "Public key: $PUBLIC_KEY"
+          echo "App Preview Link: https://appetize.io"
