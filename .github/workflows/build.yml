@@ -21,9 +21,6 @@ jobs:
       - name: Install tools
         run: |
           brew install tigervnc bore-cli
-          python3 -m venv ~/venv
-          source ~/venv/bin/activate
-          pip install websockify
           nohup Xvfb :99 -screen 0 1280x1024x24 &
           sleep 2
 
@@ -61,14 +58,11 @@ jobs:
           vncserver :99 -localhost no -SecurityTypes None -geometry 1280x1024 -depth 24 &
           sleep 5
 
-      - name: Expose VNC via bore (WebSocket)
+      - name: Expose VNC via bore
         run: |
-          source ~/venv/bin/activate
-          websockify 6080 localhost:5900 &
-          sleep 2
+          bore local 5900 --to bore.pub > bore.log 2>&1 &
 
-          bore local 6080 --to bore.pub > bore.log 2>&1 &
-          # Wait until bore actually prints its public URL
+          # Wait until bore prints its public URL
           for i in $(seq 1 12); do
             if grep -q "bore.pub:" bore.log; then
               break
@@ -83,14 +77,13 @@ jobs:
             exit 1
           fi
 
-          HOST=$(echo "$BORE_URL" | cut -d: -f1)
-          PORT=$(echo "$BORE_URL" | cut -d: -f2)
+          echo "────────────────────────────────────────────────────"
+          echo "🔗 Use this address in a VNC viewer:"
+          echo "$BORE_URL"
+          echo "────────────────────────────────────────────────────"
 
-          # Print URL once every 30 seconds so you don't miss it
+          # Print it again every 30 seconds so you don't miss it
           while true; do
-            echo "────────────────────────────────────────────────────"
-            echo "🔗 Open this link in your browser:"
-            echo "https://novnc.com/noVNC/vnc.html?host=$HOST&port=$PORT&path=/websockify"
-            echo "────────────────────────────────────────────────────"
             sleep 30
+            echo "🔗 Current VNC address: $BORE_URL"
           done
