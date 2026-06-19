@@ -11,11 +11,8 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
-        // PIN auth & timeout
         ChangeNotifierProvider(create: (_) => AuthService()),
-        // SQLite database
         Provider(create: (_) => DatabaseService()),
-        // Global data change bus for auto‑refresh
         ChangeNotifierProvider(create: (_) => DataChangeNotifier()),
       ],
       child: const VaultLendApp(),
@@ -23,8 +20,8 @@ void main() {
   );
 }
 
-/// Root widget – shows login/setup if the app is locked or no PIN exists,
-/// otherwise the main dashboard.
+/// Root widget – shows a splash while the auth service initialises,
+/// then either the login/setup screen or the dashboard.
 class VaultLendApp extends StatelessWidget {
   const VaultLendApp({super.key});
 
@@ -36,7 +33,16 @@ class VaultLendApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       home: Consumer<AuthService>(
         builder: (_, auth, __) {
-          // Show login/setup screen if app is locked or no PIN has been set yet
+          // Wait until the stored PIN is read
+          if (!auth.isInitialized) {
+            return const Scaffold(
+              backgroundColor: VaultColors.voidBlack,
+              body: Center(
+                child: CircularProgressIndicator(color: VaultColors.neonPurple),
+              ),
+            );
+          }
+          // After init, decide between login/setup and dashboard
           if (auth.isLocked || auth.needsPinSetup) {
             return const LoginScreen();
           }

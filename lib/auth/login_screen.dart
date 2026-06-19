@@ -5,7 +5,7 @@ import 'auth_service.dart';
 import '../theme.dart';
 
 /// PIN entry screen.
-/// - If no PIN exists, it lets the user create one.
+/// - If no PIN exists, it lets the user create one (first‑run).
 /// - If a PIN exists, it acts as a login screen.
 /// - After 5 consecutive wrong attempts, a 30‑second lockout is enforced.
 /// - The password field clears automatically on a wrong attempt.
@@ -26,6 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    // Because the widget is only shown after AuthService is initialized,
+    // this value is now always correct.
     final auth = context.read<AuthService>();
     _isFirstRun = auth.needsPinSetup;
   }
@@ -78,7 +80,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void _startLockout() {
     _lockedOut = true;
     _pinCtrl.clear();
-    // After 30 seconds, allow attempts again (keep the attempt counter)
     _lockoutTimer?.cancel();
     _lockoutTimer = Timer(const Duration(seconds: 30), () {
       if (mounted) {
@@ -100,8 +101,12 @@ class _LoginScreenState extends State<LoginScreen> {
               Text('VAULT-LEND',
                   style: VaultFonts.exo(28, weight: FontWeight.w700)),
               const SizedBox(height: 24),
+              // Different prompt for first‑run vs login
               Text(
-                _isFirstRun ? 'Create a 4‑digit PIN' : 'Enter PIN',
+                _isFirstRun
+                    ? 'Welcome!\nCreate a secure PIN to protect your data.'
+                    : 'Enter your PIN',
+                textAlign: TextAlign.center,
                 style: VaultFonts.body(15),
               ),
               const SizedBox(height: 16),
@@ -129,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Text(
                   _lockedOut
                       ? 'Locked (30s)'
-                      : (_isFirstRun ? 'SET PIN' : 'LOGIN'),
+                      : (_isFirstRun ? 'CREATE PIN' : 'UNLOCK'),
                 ),
               ),
             ],

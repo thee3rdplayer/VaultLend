@@ -11,14 +11,18 @@ class AuthService extends ChangeNotifier {
   static const idleTimeout = Duration(minutes: 2); // auto‑lock after 2 min idle
 
   bool _locked = true;
+  bool _initialized = false;   // becomes true after _init() completes
   Timer? _idleTimer;
-  String? _storedHash; // null if no PIN has ever been set
+  String? _storedHash;         // null if no PIN has ever been set
+
+  /// True once the stored PIN has been loaded from secure storage.
+  bool get isInitialized => _initialized;
 
   /// True if the app is currently locked.
   bool get isLocked => _locked;
 
   /// True if no PIN has been saved (first‑run setup).
-  /// We treat an empty string the same as null for robustness.
+  /// Only reliable after [_initialized] is true.
   bool get needsPinSetup => _storedHash == null && !_locked;
 
   /// True if a PIN has been successfully stored (non‑empty hash).
@@ -34,14 +38,14 @@ class AuthService extends ChangeNotifier {
   Future<void> _init() async {
     _storedHash = await _storage.read(key: _pinHashKey);
     if (_storedHash != null && _storedHash!.isEmpty) {
-      _storedHash = null; // treat empty as "no PIN" (fixes platform quirk)
+      _storedHash = null;   // treat empty as “no PIN” (fixes platform quirk)
     }
     if (_storedHash == null) {
-      // No PIN yet → start unlocked; user will be prompted to create one
-      _locked = false;
+      _locked = false;      // no PIN → start unlocked, user will create one
     } else {
       _locked = true;
     }
+    _initialized = true;
     notifyListeners();
   }
 
