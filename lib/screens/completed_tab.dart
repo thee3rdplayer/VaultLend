@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../services/database_service.dart';
+import '../services/data_change_notifier.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-/// Displays all paid loans (status = 'paid').
-/// Long‑press to open audit and optionally revert to unpaid.
+/// Lists paid loans. Long‑press to edit note or revert to unpaid via audit dialog.
 class CompletedTab extends StatefulWidget {
   const CompletedTab({super.key});
 
@@ -21,6 +21,13 @@ class _CompletedTabState extends State<CompletedTab> {
   void initState() {
     super.initState();
     _refresh();
+    context.read<DataChangeNotifier>().addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    context.read<DataChangeNotifier>().removeListener(_refresh);
+    super.dispose();
   }
 
   void _refresh() {
@@ -30,6 +37,8 @@ class _CompletedTabState extends State<CompletedTab> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<DataChangeNotifier>();
+
     return FutureBuilder<List<LoanTransaction>>(
       future: _future,
       builder: (_, snapshot) {
@@ -64,7 +73,9 @@ class _CompletedTabState extends State<CompletedTab> {
       context: context,
       builder: (_) => AuditDialog(
         transaction: tx,
-        onSaved: _refresh,
+        onSaved: () {
+          context.read<DataChangeNotifier>().notifyDataChanged();
+        },
       ),
     );
   }

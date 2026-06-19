@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../services/database_service.dart';
+import '../services/data_change_notifier.dart';
 import '../services/export_service.dart';
 import '../theme.dart';
 
@@ -57,6 +58,8 @@ class UploadTab extends StatelessWidget {
                         ),
                       ),
                     );
+                    // Refresh all tabs
+                    context.read<DataChangeNotifier>().notifyDataChanged();
                   }
                 } else {
                   if (context.mounted) {

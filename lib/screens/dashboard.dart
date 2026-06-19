@@ -9,7 +9,8 @@ import 'completed_tab.dart';
 import 'audit_tab.dart';
 import 'upload_tab.dart';
 
-/// Main shell with bottom navigation and locked‑screen timeout handling.
+/// Main shell with bottom navigation.
+/// Listens for pointer events to reset the idle timer.
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
 
@@ -20,11 +21,10 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   int _currentIndex = 0;
 
-  // The five main sections of the app
   final _tabs = const [
     SummaryTab(),
     PendingTab(),
-    CompletedTab(),  // shows paid loans
+    CompletedTab(),  // paid loans
     AuditTab(),
     UploadTab(),
   ];
@@ -32,7 +32,6 @@ class _DashboardState extends State<Dashboard> {
   @override
   Widget build(BuildContext context) {
     return Listener(
-      // Every pointer down event resets the idle timer
       onPointerDown: (_) => context.read<AuthService>().onUserInteraction(),
       child: Scaffold(
         appBar: AppBar(
@@ -49,7 +48,7 @@ class _DashboardState extends State<Dashboard> {
                 builder: (_) => const ChangePinDialog(),
               ),
             ),
-            // Manual lock button
+            // Manual lock
             IconButton(
               icon: const Icon(Icons.logout,
                   color: VaultColors.neonPurple),

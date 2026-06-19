@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/database_service.dart';
 import '../theme.dart';
 
-/// Dashboard overview: total unpaid, collected, and overdue count.
+/// Dashboard overview: outstanding total, collected total, overdue count.
 class SummaryTab extends StatelessWidget {
   const SummaryTab({super.key});
 
@@ -19,16 +19,14 @@ class SummaryTab extends StatelessWidget {
           );
         }
         final txs = snapshot.data as List? ?? [];
-        // Separate paid and unpaid
         final unpaid = txs.where((t) => t.status == 'unpaid').toList();
         final paid = txs.where((t) => t.status == 'paid').toList();
 
         final totalUnpaid =
-            unpaid.fold<double>(0, (sum, t) => sum + t.amountPlusInterest);
+            unpaid.fold<double>(0, (sum, t) => sum + t.totalToPay);
         final totalPaid =
-            paid.fold<double>(0, (sum, t) => sum + t.amountPlusInterest);
+            paid.fold<double>(0, (sum, t) => sum + t.totalToPay);
 
-        // Overdue: unpaid with due date before now
         final now = DateTime.now();
         final overdueCount =
             unpaid.where((t) => t.dueDate.isBefore(now)).length;
@@ -39,16 +37,14 @@ class SummaryTab extends StatelessWidget {
             children: [
               _StatCard(
                 label: 'OUTSTANDING',
-                value: '\$${totalUnpaid.toStringAsFixed(2)}',
+                value: 'K ${totalUnpaid.toStringAsFixed(2)}',
                 color: VaultColors.neonPink,
-                extra: overdueCount > 0
-                    ? '$overdueCount overdue'
-                    : null,
+                extra: overdueCount > 0 ? '$overdueCount overdue' : null,
               ),
               const SizedBox(height: 12),
               _StatCard(
                 label: 'COLLECTED',
-                value: '\$${totalPaid.toStringAsFixed(2)}',
+                value: 'K ${totalPaid.toStringAsFixed(2)}',
                 color: VaultColors.neonTeal,
               ),
             ],
@@ -59,15 +55,16 @@ class SummaryTab extends StatelessWidget {
   }
 }
 
-/// A single summary card with label, large value, and optional extra line.
 class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
+  final String label, value;
   final Color color;
   final String? extra;
 
   const _StatCard(
-      {required this.label, required this.value, required this.color, this.extra});
+      {required this.label,
+      required this.value,
+      required this.color,
+      this.extra});
 
   @override
   Widget build(BuildContext context) {

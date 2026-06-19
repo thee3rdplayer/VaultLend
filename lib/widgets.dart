@@ -4,18 +4,18 @@ import 'models/transaction.dart';
 import 'services/database_service.dart';
 import 'theme.dart';
 
-/// A styled tile for displaying a loan transaction.
-/// Shows name, amount, due date, remaining days, and overdue highlight.
+/// Tile for displaying a loan transaction.
+/// Shows name, total to pay, due date, remaining days, overdue highlight, and note.
 class TransactionTile extends StatelessWidget {
   final LoanTransaction tx;
-  final VoidCallback? onAudit; // called on long‑press to open audit
+  final VoidCallback? onAudit;
 
   const TransactionTile({super.key, required this.tx, this.onAudit});
 
   @override
   Widget build(BuildContext context) {
     final days = tx.daysUntilDue;
-    final isOverdue = days < 0 && !tx.isPaid; // only highlight unpaid overdue
+    final isOverdue = days < 0 && !tx.isPaid;
 
     return GestureDetector(
       onLongPress: onAudit,
@@ -34,18 +34,14 @@ class TransactionTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Borrower name
             Text(tx.borrowerName,
                 style: VaultFonts.exo(14, weight: FontWeight.w600)),
             const SizedBox(height: 4),
-            // Amount + interest and due date
             Text(
-              '\$${tx.amountPlusInterest.toStringAsFixed(2)} — '
-              'due ${_fmtDate(tx.dueDate)}',
+              'K ${tx.totalToPay.toStringAsFixed(2)} — due ${_fmtDate(tx.dueDate)}',
               style: VaultFonts.raj(12, color: VaultColors.textDim),
             ),
             const SizedBox(height: 4),
-            // Remaining days or overdue label
             Text(
               isOverdue
                   ? '${-days}d overdue'
@@ -59,7 +55,6 @@ class TransactionTile extends StatelessWidget {
                           ? VaultColors.neonTeal
                           : VaultColors.textSecondary),
             ),
-            // Show note if present
             if (tx.note != null && tx.note!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -76,11 +71,11 @@ class TransactionTile extends StatelessWidget {
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
-/// Dialog for adding/modifying audit information on a transaction.
-/// Also allows toggling the paid/unpaid status.
+/// Dialog for editing a loan's note and toggling paid/unpaid status.
+/// No referral fields.
 class AuditDialog extends StatefulWidget {
   final LoanTransaction transaction;
-  final VoidCallback onSaved; // called after successful save
+  final VoidCallback onSaved;
 
   const AuditDialog(
       {super.key, required this.transaction, required this.onSaved});
@@ -91,26 +86,18 @@ class AuditDialog extends StatefulWidget {
 
 class _AuditDialogState extends State<AuditDialog> {
   late final TextEditingController _noteCtrl;
-  late final TextEditingController _refNameCtrl;
-  late final TextEditingController _refCodeCtrl;
-  late bool _isPaid; // current paid toggle state
+  late bool _isPaid;
 
   @override
   void initState() {
     super.initState();
     _noteCtrl = TextEditingController(text: widget.transaction.note ?? '');
-    _refNameCtrl =
-        TextEditingController(text: widget.transaction.referralName ?? '');
-    _refCodeCtrl =
-        TextEditingController(text: widget.transaction.referralCode ?? '');
     _isPaid = widget.transaction.isPaid;
   }
 
   @override
   void dispose() {
     _noteCtrl.dispose();
-    _refNameCtrl.dispose();
-    _refCodeCtrl.dispose();
     super.dispose();
   }
 
@@ -119,10 +106,6 @@ class _AuditDialogState extends State<AuditDialog> {
     await db.addAudit(
       widget.transaction.id!,
       note: _noteCtrl.text.trim(),
-      referralName:
-          _refNameCtrl.text.trim().isEmpty ? null : _refNameCtrl.text.trim(),
-      referralCode:
-          _refCodeCtrl.text.trim().isEmpty ? null : _refCodeCtrl.text.trim(),
       newStatus: _isPaid ? 'paid' : 'unpaid',
     );
     widget.onSaved();
@@ -137,7 +120,7 @@ class _AuditDialogState extends State<AuditDialog> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: VaultColors.neonPurple.withValues(alpha: 0.5)),
       ),
-      title: Text('AUDIT',
+      title: Text('EDIT ENTRY',
           style: VaultFonts.exo(14, weight: FontWeight.w700)),
       content: SingleChildScrollView(
         child: Column(
@@ -163,20 +146,6 @@ class _AuditDialogState extends State<AuditDialog> {
               decoration: const InputDecoration(labelText: 'Note'),
               style: VaultFonts.raj(14),
               maxLines: 2,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _refNameCtrl,
-              decoration:
-                  const InputDecoration(labelText: 'Referral Name'),
-              style: VaultFonts.raj(14),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _refCodeCtrl,
-              decoration:
-                  const InputDecoration(labelText: 'Referral Code'),
-              style: VaultFonts.raj(14),
             ),
           ],
         ),

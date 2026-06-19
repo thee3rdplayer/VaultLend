@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/transaction.dart';
+import '../models/transaction.dart';          // ← THIS WAS MISSING
 import '../services/database_service.dart';
 import '../theme.dart';
 
 /// Full‑screen form to add a new loan.
-/// Returns `true` if saved successfully, `null` otherwise.
+/// Interest is a flat amount; total = base + interest.
 class AddTransactionDialog extends StatefulWidget {
   const AddTransactionDialog({super.key});
 
@@ -18,16 +18,16 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _baseAmountCtrl = TextEditingController();
-  final _interestRateCtrl = TextEditingController();
+  final _interestAmountCtrl = TextEditingController();
 
   DateTime _loanDate = DateTime.now();
   DateTime _dueDate = DateTime.now().add(const Duration(days: 30));
 
-  /// Calculated total: baseAmount * (1 + interestRate/100)
+  /// Calculated total: base + interest.
   double get _total {
     final base = double.tryParse(_baseAmountCtrl.text) ?? 0;
-    final rate = double.tryParse(_interestRateCtrl.text) ?? 0;
-    return base * (1 + rate / 100);
+    final interest = double.tryParse(_interestAmountCtrl.text) ?? 0;
+    return base + interest;
   }
 
   Future<void> _save() async {
@@ -38,10 +38,9 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
       phone: _phoneCtrl.text.trim(),
       loanDate: _loanDate,
       baseAmount: double.parse(_baseAmountCtrl.text),
-      interestRate: double.parse(_interestRateCtrl.text),
-      amountPlusInterest: _total,
+      interestAmount: double.parse(_interestAmountCtrl.text),
       dueDate: _dueDate,
-      status: 'unpaid', // always starts unpaid
+      status: 'unpaid',
     );
 
     await context.read<DatabaseService>().insert(tx);
@@ -49,7 +48,6 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
   }
 
   Future<void> _pickDate(bool isLoanDate) async {
-    // `now` was unused — removed to satisfy linter
     final picked = await showDatePicker(
       context: context,
       initialDate: isLoanDate ? _loanDate : _dueDate,
@@ -67,7 +65,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
         child: child!,
       ),
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
         if (isLoanDate) {
           _loanDate = picked;
@@ -83,7 +81,8 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
     return Scaffold(
       backgroundColor: VaultColors.voidBlack,
       appBar: AppBar(
-        title: Text('New Loan', style: VaultFonts.exo(18, weight: FontWeight.w700)),
+        title: Text('New Loan',
+            style: VaultFonts.exo(18, weight: FontWeight.w700)),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
@@ -130,7 +129,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               TextFormField(
                 controller: _baseAmountCtrl,
                 decoration:
-                    const InputDecoration(labelText: 'Base Amount (\$)'),
+                    const InputDecoration(labelText: 'Base Amount (K)'),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 style: VaultFonts.raj(16),
@@ -143,9 +142,9 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _interestRateCtrl,
+                controller: _interestAmountCtrl,
                 decoration:
-                    const InputDecoration(labelText: 'Interest Rate (%)'),
+                    const InputDecoration(labelText: 'Interest Amount (K)'),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 style: VaultFonts.raj(16),
@@ -159,7 +158,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               const SizedBox(height: 8),
               // Auto‑calculated total
               Text(
-                'Total to Repay: \$${_total.toStringAsFixed(2)}',
+                'Total to Repay: K ${_total.toStringAsFixed(2)}',
                 style: VaultFonts.raj(18,
                     weight: FontWeight.w700, color: VaultColors.neonTeal),
               ),
