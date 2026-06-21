@@ -52,7 +52,7 @@ jobs:
           fi
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
 
-            # --- Start and configure macOS VNC with legacy password ---
+      # --- Start and configure macOS VNC with legacy password ---
       - name: Configure and Start macOS VNC Server
         run: |
           # 1. Allow all users with full privileges
@@ -71,32 +71,8 @@ jobs:
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -restart -agent -console
 
-      - name: Expose VNC via bore
-        run: |
-          bore local 5900 --to bore.pub > bore.log 2>&1 &
-
-          # Wait until bore prints its public URL
-          for i in $(seq 1 12); do
-            if grep -q "bore.pub:" bore.log; then
-              break
-            fi
-            sleep 5
-          done
-
-          BORE_URL=$(grep -oE 'bore\.pub:[0-9]+' bore.log | head -1)
-          if [ -z "$BORE_URL" ]; then
-            echo "Bore did not start. Log:"
-            cat bore.log
-            exit 1
-          fi
-
-          echo "────────────────────────────────────────────────────"
-          echo "🔗 Use this address in a VNC viewer:"
-          echo "$BORE_URL"
-          echo "────────────────────────────────────────────────────"
-
-          # Print it again every 30 seconds so you don't miss it
-          while true; do
-            sleep 30
-            echo "🔗 Current VNC address: $BORE_URL"
-          done
+      # 5. Start Tmate session so you can SSH in and forward VNC
+      - name: Start Tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: false   # allows anyone with the SSH string to connect
