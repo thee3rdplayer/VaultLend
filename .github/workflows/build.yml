@@ -52,11 +52,24 @@ jobs:
           fi
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
 
-      - name: Start VNC server
+            # --- Start and configure macOS VNC with legacy password ---
+      - name: Configure and Start macOS VNC Server
         run: |
-          export DISPLAY=:99
-          vncserver :99 -localhost no -SecurityTypes None -geometry 1280x1024 -depth 24 &
-          sleep 5
+          # 1. Allow all users with full privileges
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -allowAccessFor -allUsers -privs -all
+
+          # 2. Enable legacy VNC mode (required by Remmina & TigerVNC)
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -clientopts -setvnclegacy -vnclegacy yes
+
+          # 3. Set a VNC password (choose anything, e.g. 'VaultLend2024')
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -clientopts -setvncpw -vncpw VaultLend2024
+
+          # 4. Restart the ARD agent to apply changes
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate -restart -agent -console
 
       - name: Expose VNC via bore
         run: |
