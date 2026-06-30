@@ -1,46 +1,54 @@
+# ─── Workflow name ─────────────────────────────────────────────
 name: Build Unsigned IPA
-
+# ─── Trigger on every push ─────────────────────────────────────
 on: push
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-latest   # macOS is required for iOS compilation
 
     steps:
+      # 1. Checkout the repository code
       - uses: actions/checkout@v4
 
+      # 2. Install Flutter (match your local version)
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.2'
 
+      # 3. Fetch all Dart dependencies
       - name: Flutter pub get
         run: flutter pub get
 
+      # 4. Install CocoaPods (needed for iOS plugin management)
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
+      # 5. Run pod install to sync the Podfile.lock on the runner
       - name: Run pod install
         run: |
           cd ios
           pod install
           cd ..
 
-      - name: Set deployment target to 14.0
-        run: |
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' ios/Runner.xcodeproj/project.pbxproj
-
+      # 6. Build the release .app with no code signing
       - name: Build unsigned .app
         run: flutter build ios --release --no-codesign
 
+      # 7. Manually package the .app into an unsigned .ipa
       - name: Create unsigned IPA
         run: |
           APP_PATH="build/ios/Release-iphoneos/Runner.app"
           IPA_NAME="LuchiKwacha-unsigned.ipa"
+
+          # The .ipa is just a zip of a Payload folder containing the .app
           mkdir Payload
           cp -R "$APP_PATH" Payload/
           zip -r "$IPA_NAME" Payload
+
           echo "Unsigned IPA created: $IPA_NAME"
 
+      # 8. Upload the IPA as a downloadable artifact
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
