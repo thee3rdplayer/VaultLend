@@ -1,5 +1,0 @@
-# Configuration for flutter_launcher_icons package.
-# Automatically sets the iOS (and Android) app icon from a single source image.
-flutter_launcher_icons:
-  ios: true                             # generate iOS icon set
-  image_path: "assets/vaultlend.png"    # source image for the icon

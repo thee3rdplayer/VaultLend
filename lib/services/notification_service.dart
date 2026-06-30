@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../models/transaction.dart';
@@ -7,7 +8,6 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
-  /// Initialise the plugin and request permissions.
   Future<void> init() async {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -17,31 +17,46 @@ class NotificationService {
       requestSoundPermission: true,
     );
     await _plugin.initialize(
-      const InitializationSettings(
+      settings: const InitializationSettings(
         android: androidSettings,
         iOS: iosSettings,
       ),
     );
+
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'vaultlend_due',
+      'Due Reminders',
+      description: 'Loan due date alerts',
+      importance: Importance.high,
+    );
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      await androidPlugin.createNotificationChannel(channel);
+      await androidPlugin.requestNotificationsPermission();
+    }
+
+    debugPrint('>>> NotificationService initialised');
   }
 
-  /// Schedule a reminder for a given transaction.
-  /// The notification will fire on the due date at 9:00 AM local time.
+  /// **Production**: schedule a reminder 30 days after creation.
   Future<void> scheduleDueReminder(LoanTransaction tx) async {
-    // Do not schedule if already paid or due date has already passed
-    if (tx.isPaid || tx.dueDate.isBefore(DateTime.now())) return;
+    if (tx.isPaid) return;
 
-    // Convert DateTime to TZDateTime using the local timezone
+    final DateTime notifyDateTime = tx.createdAt.add(const Duration(days: 30));
+    if (notifyDateTime.isBefore(DateTime.now())) return;
+
     final tz.TZDateTime scheduledDate = tz.TZDateTime.from(
-      DateTime(tx.dueDate.year, tx.dueDate.month, tx.dueDate.day, 9),
+      notifyDateTime,
       tz.local,
     );
 
     await _plugin.zonedSchedule(
-      tx.id!,                                 // unique ID for this transaction
-      'Loan Due: ${tx.borrowerName}',
-      'K ${tx.totalToPay.toStringAsFixed(2)} is due today',
-      scheduledDate,
-      const NotificationDetails(
+      id: tx.id!,
+      title: 'Loan Due: ${tx.borrowerName}',
+      body: 'K ${tx.totalToPay.toStringAsFixed(2)} may be due for follow‑up',
+      scheduledDate: scheduledDate,
+      notificationDetails: const NotificationDetails(
         iOS: DarwinNotificationDetails(
           sound: 'default',
           badgeNumber: 1,
@@ -54,18 +69,32 @@ class NotificationService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.inexact,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
     );
   }
 
-  /// Cancel the notification for a transaction (e.g., when paid or deleted).
-  Future<void> cancelReminder(int id) async {
-    await _plugin.cancel(id);
+  /// **Test helper**: fires an immediate notification using `show()`.
+  Future<void> showTestNotification() async {
+    await _plugin.show(
+      id: 99999,
+      title: 'VaultLend Test',
+      body: 'Notifications are working!',
+      notificationDetails: const NotificationDetails(
+        iOS: DarwinNotificationDetails(sound: 'default'),
+        android: AndroidNotificationDetails(
+          'vaultlend_due',
+          'Due Reminders',
+          channelDescription: 'Loan due date alerts',
+          importance: Importance.high,
+        ),
+      ),
+    );
   }
 
-  /// Cancel all scheduled notifications – useful for a clean reschedule.
+  Future<void> cancelReminder(int id) async {
+    await _plugin.cancel(id: id);
+  }
+
   Future<void> cancelAll() async {
     await _plugin.cancelAll();
   }

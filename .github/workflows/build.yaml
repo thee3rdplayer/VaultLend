@@ -48,7 +48,7 @@ jobs:
           xcrun simctl install "$UDID" "$APP_PATH"
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist")
           if [ -z "$BUNDLE_ID" ]; then
-            BUNDLE_ID="com.example.vaultlend"
+            BUNDLE_ID="com.luchikwacha"
           fi
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
 

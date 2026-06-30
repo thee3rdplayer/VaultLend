@@ -1,0 +1,51 @@
+name: Build Unsigned IPA
+
+on: push
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+
+      # Install Flutter dependencies
+      - name: Flutter pub get
+        run: flutter pub get
+
+      # Build the iOS release .app with no signing
+      - name: Build unsigned .app
+        run: |
+          flutter build ios --release --no-codesign   # disables signing entirely
+        # If --no-codesign isn't available in your Flutter version, use:
+        #   flutter build ios --release
+        #   and export the following environment variables beforehand:
+        #   export EXPANDED_CODE_SIGN_IDENTITY=""
+        #   export CODE_SIGNING_ALLOWED=NO
+        #   export CODE_SIGNING_REQUIRED=NO
+
+      # Manually package the .app into an unsigned .ipa
+      - name: Create unsigned IPA
+        run: |
+          APP_PATH="build/ios/Release-iphoneos/Runner.app"
+          IPA_NAME="LuchiKwacha-unsigned.ipa"
+
+          # Create the Payload directory structure expected by iOS
+          mkdir Payload
+          cp -R "$APP_PATH" Payload/
+
+          # Zip the Payload folder and rename to .ipa
+          zip -r "$IPA_NAME" Payload
+
+          echo "Unsigned IPA created: $IPA_NAME"
+
+      # Upload the IPA as a downloadable artifact
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LuchiKwacha-Unsigned-IPA
+          path: LuchiKwacha-unsigned.ipa

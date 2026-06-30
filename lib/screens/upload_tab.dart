@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:file_picker/file_picker.dart';   // v12+
 import 'package:provider/provider.dart';
 import '../services/database_service.dart';
 import '../services/data_change_notifier.dart';
@@ -55,7 +55,8 @@ class UploadTab extends StatelessWidget {
             desc: 'Load transactions from a previously exported CSV file',
             color: VaultColors.neonPurple,
             onTap: () async {
-              final result = await FilePicker.platform.pickFiles(
+              // v12 uses FilePicker.pickFiles() (no .platform)
+              final result = await FilePicker.pickFiles(
                 type: FileType.custom,
                 allowedExtensions: ['csv'],
               );
@@ -147,7 +148,7 @@ class _Tile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: color, size: 18),
+            const Icon(Icons.chevron_right, color: VaultColors.neonPurple, size: 18),
           ],
         ),
       ),

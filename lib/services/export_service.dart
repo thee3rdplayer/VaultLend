@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart';    // v13+
 import '../models/transaction.dart';
 
 /// CSV export/import with address column.
 class ExportService {
-  // The CSV header is a compile‑time constant
   static const _header =
       'Name,Phone,Address,LoanDate,BaseAmount,InterestAmount,DueDate,Status,Note,CreatedAt';
 
@@ -40,10 +39,13 @@ class ExportService {
     return file;
   }
 
+  /// Use SharePlus.instance.share() – the new v13 API.
   Future<void> shareFile(File file) async {
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      subject: 'VaultLend Transactions',
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        subject: 'VaultLend Transactions',
+      ),
     );
   }
 
@@ -55,7 +57,7 @@ class ExportService {
     for (final line in dataLines) {
       if (line.trim().isEmpty) continue;
       final values = _splitCsvLine(line);
-      if (values.length < 10) continue; // need at least 10 columns
+      if (values.length < 10) continue;
       try {
         txs.add(LoanTransaction(
           borrowerName: values[0],

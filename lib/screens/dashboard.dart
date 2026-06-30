@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth/auth_service.dart';
 import '../auth/change_pin_dialog.dart';
-import '../services/database_service.dart'; 
+import '../services/database_service.dart';
+import '../services/data_change_notifier.dart';
 import '../services/notification_service.dart';
 import '../theme.dart';
 import 'summary_tab.dart';
@@ -22,6 +24,8 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> {
   int _currentIndex = 0;
+  Timer? _overdueTimer;
+  late final DataChangeNotifier _dataNotifier;
 
   final _tabs = const [
     SummaryTab(),
@@ -34,11 +38,23 @@ class _DashboardState extends State<Dashboard> {
   @override
   void initState() {
     super.initState();
-    // Reschedule all due notifications when the dashboard first appears
+    _dataNotifier = context.read<DataChangeNotifier>();
+
     _rescheduleAllDueReminders();
+
+    _overdueTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        _dataNotifier.notifyDataChanged();
+      }
+    });
   }
 
-  /// Loop through every unpaid loan and schedule a notification.
+  @override
+  void dispose() {
+    _overdueTimer?.cancel();
+    super.dispose();
+  }
+
   void _rescheduleAllDueReminders() {
     final db = context.read<DatabaseService>();
     final notif = context.read<NotificationService>();
@@ -57,10 +73,9 @@ class _DashboardState extends State<Dashboard> {
       onPointerDown: (_) => context.read<AuthService>().onUserInteraction(),
       child: Scaffold(
         appBar: AppBar(
-          title: Text('VAULT-LEND',
+          title: Text('LUCHI-KWACHA',
               style: VaultFonts.exo(18, weight: FontWeight.w700)),
           actions: [
-            // Change PIN button
             IconButton(
               icon: const Icon(Icons.lock_outline,
                   color: VaultColors.neonPink),
@@ -69,13 +84,6 @@ class _DashboardState extends State<Dashboard> {
                 context: context,
                 builder: (_) => const ChangePinDialog(),
               ),
-            ),
-            // Manual lock
-            IconButton(
-              icon: const Icon(Icons.logout,
-                  color: VaultColors.neonPurple),
-              tooltip: 'Lock app',
-              onPressed: () => context.read<AuthService>().logout(),
             ),
           ],
         ),

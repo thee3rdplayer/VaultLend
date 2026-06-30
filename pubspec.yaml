@@ -1,5 +1,5 @@
 name: vaultlend
-description: A lightweight loan ledger app.
+description: A lightweight loan ledger app – LuchiKwacha.
 
 # Dart SDK version range (minimum 3.12.0, up to but not including 4.0.0)
 # Matches the bundled Dart version in Flutter 3.44.2
@@ -13,11 +13,12 @@ dependencies:
   # Filesystem path manipulation (used by sqflite and for CSV export paths)
   path: ^1.8.3
 
-  flutter_local_notifications: ^18.0.0
-  timezone: ^0.9.2
+  # Local notifications for due‑date reminders
+  flutter_local_notifications: ^22.0.1
+  timezone: ^0.11.1
 
   # Retro purple typography: Exo 2 & Rajdhani
-  google_fonts: ^6.1.0
+  google_fonts: ^8.1.0
 
   # Local SQLite database for storing all loan records
   sqflite: ^2.3.0
@@ -26,19 +27,19 @@ dependencies:
   path_provider: ^2.1.0
 
   # Encrypted key‑chain storage for the PIN hash
-  flutter_secure_storage: ^9.0.0
+  flutter_secure_storage: ^10.3.1
 
   # SHA‑256 hashing for the PIN
   crypto: ^3.0.3
 
   # Native share sheet → iCloud Drive (Save to Files)
-  share_plus: ^7.2.0
+  share_plus: ^13.2.0 
 
   # Pick CSV files during import
-  file_picker: ^6.1.1
+  file_picker: ^12.0.0-beta.7
 
   # Date formatting utilities
-  intl: ^0.18.1
+  intl: ^0.20.3
 
   # State management & dependency injection
   provider: ^6.1.1
@@ -48,10 +49,10 @@ dev_dependencies:
     sdk: flutter
 
   # Recommended lint rules for clean Dart code
-  flutter_lints: ^3.0.1
+  flutter_lints: ^6.0.0
 
   # Tool for automatically generating app icons for iOS/Android
-  flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: ^0.14.4
 
 # --------------------------------------------------
 # Flutter configuration (bundled assets, fonts, etc.)
@@ -63,5 +64,13 @@ flutter:
 
   # Assets bundled with the app
   assets:
-    # App icon source image (must be a PNG for iOS generation)
-    - assets/vaultlend.png  
+    # App icon source image – used by flutter_launcher_icons
+    - assets/luchikwacha.png
+
+# --------------------------------------------------
+# Flutter Launcher Icons configuration
+# --------------------------------------------------
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/luchikwacha.png"

@@ -1,4 +1,4 @@
-package com.example.vaultlend
+package com.luchikwacha
 
 import io.flutter.embedding.android.FlutterActivity
 
